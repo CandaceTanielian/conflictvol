@@ -1,4 +1,4 @@
-import { cp, mkdir, rm } from 'node:fs/promises';
+import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
 const projectRoot = process.cwd();
@@ -22,5 +22,7 @@ for (const file of [
 ]) {
   await cp(join(sourceRoot, file), join(outputRoot, file));
 }
+
+await writeFile(join(outputRoot, '.nojekyll'), '');
 
 console.log('Prepared clean GitHub Pages output in deploy-dist.');
