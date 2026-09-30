@@ -1,0 +1,49 @@
+{
+  "name": "conflictvol-poc",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.ts",
+  "scripts": {
+    "start": "expo start",
+    "dev": "cross-env APP_VARIANT=development expo start --dev-client",
+    "dev:tunnel": "cross-env APP_VARIANT=development expo start --dev-client --tunnel",
+    "android": "expo start --android",
+    "ios": "expo start --ios",
+    "web": "expo start --web",
+    "typecheck": "tsc --noEmit",
+    "export:web": "expo export --platform web",
+    "predeploy": "expo export --platform web && node scripts/prepare-pages.mjs",
+    "deploy": "gh-pages --nojekyll -d deploy-dist",
+    "build:android:development": "npx eas-cli build --platform android --profile development",
+    "build:ios:development": "npx eas-cli build --platform ios --profile development",
+    "build:android:preview": "npx eas-cli build --platform android --profile preview",
+    "build:ios:preview": "npx eas-cli build --platform ios --profile preview",
+    "build:production": "npx eas-cli build --platform all --profile production"
+  },
+  "dependencies": {
+    "@expo-google-fonts/bodoni-moda": "^0.4.2",
+    "@expo-google-fonts/cormorant-garamond": "^0.4.1",
+    "@expo-google-fonts/manrope": "^0.4.2",
+    "@expo-google-fonts/nunito-sans": "^0.4.2",
+    "expo": "55",
+    "expo-blur": "~55.0.14",
+    "expo-dev-client": "~55.0.28",
+    "expo-font": "^55.0.6",
+    "expo-linear-gradient": "~55.0.13",
+    "expo-notifications": "~55.0.23",
+    "expo-status-bar": "~55.0.4",
+    "react": "^19.2.0",
+    "react-dom": "19.2.0",
+    "react-native": "^0.83.6",
+    "react-native-svg": "15.15.3",
+    "react-native-web": "^0.21.0",
+    "react-native-webview": "13.16.0"
+  },
+  "devDependencies": {
+    "@expo/ngrok": "^4.1.0",
+    "@types/react": "~19.2.2",
+    "cross-env": "^10.1.0",
+    "gh-pages": "^6.3.0",
+    "typescript": "~5.9.2"
+  }
+}
