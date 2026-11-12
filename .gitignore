@@ -32,3 +32,13 @@ expo-stderr.log
 .env.*
 !.env.example
 node_modules
+
+# GitHub Pages build
+deploy-dist/
+
+# Python backend
+__pycache__/
+*.pyc
+.pytest_cache/
+backend/*.db
+.venv/

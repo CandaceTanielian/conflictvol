@@ -2,18 +2,17 @@ const variant = process.env.APP_VARIANT ?? 'production';
 const isDevelopment = variant === 'development';
 const isPreview = variant === 'preview';
 const variantSuffix = isDevelopment ? '.dev' : isPreview ? '.preview' : '';
-const appName = isDevelopment
-  ? 'ConflictVol POC Dev'
-  : isPreview
-    ? 'ConflictVol POC Preview'
-    : 'ConflictVol';
+const appName = isDevelopment ? 'ConflictVol Dev' : isPreview ? 'ConflictVol Preview' : 'ConflictVol';
+
+// GitHub Pages serves the site from /conflictvol. Local builds can override with EXPO_BASE_URL="".
+const baseUrl = process.env.EXPO_BASE_URL ?? '/conflictvol';
 
 export default {
   expo: {
     name: appName,
     slug: 'conflictvol-poc',
-    version: '1.0.0',
-    orientation: 'portrait',
+    version: '2.0.0',
+    orientation: 'default',
     userInterfaceStyle: 'dark',
     scheme: isDevelopment ? 'conflictvol-dev' : 'conflictvol',
     ios: {
@@ -25,18 +24,13 @@ export default {
     },
     web: {
       bundler: 'metro',
+      favicon: './public/conflictvol-logo.png',
     },
     experiments: {
-      baseUrl: '/conflictvol',
+      baseUrl,
     },
     plugins: [
-      [
-        'expo-dev-client',
-        {
-          launchMode: 'most-recent',
-          addGeneratedScheme: isDevelopment,
-        },
-      ],
+      ['expo-dev-client', { launchMode: 'most-recent', addGeneratedScheme: isDevelopment }],
     ],
     extra: {
       appVariant: variant,

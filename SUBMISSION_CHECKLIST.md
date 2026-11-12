@@ -1,41 +1,26 @@
-# ConflictVol Proof of Concept Submission
+# ConflictVol: Assignment 2 Submission
 
-## Recommended files to submit
+## Files to submit on Canvas (one team member)
 
-1. `ConflictVol_POC_Source.zip` contains the React source, configuration, assets, README, and the supplied business plan.
-2. `ConflictVol_POC_Web_Build.zip` contains the exported static website that can be hosted or opened through a local web server.
-3. `ConflictVol_Process_PM_Plan.docx` is the business plan used as the prototype source document and is also included inside the source ZIP.
+1. `ConflictVol_Source.zip`: full source (Expo app, FastAPI backend, tests, README).
+2. `ConflictVol_Screenshots.pdf`: 16 captioned screenshots (desktop + mobile).
+3. Links:
+   - Live app: https://candacetanielian.github.io/conflictvol/ (demo account: demo@conflictvol.app / Demo1234!)
+   - Source: https://github.com/CandaceTanielian/conflictvol
 
 ## Assignment requirements covered
 
-- Clickable React-based prototype
-- Screen-by-screen navigation
-- Overview, Projections, and Conflicts use cases
-- Market indicators, buy or sell bias, and bear or bull likelihood
-- Current conflict stories linked to countries, industries, and companies
-- Followed-company highlighting
-- Day-in-the-life scenario in the README
-- Front-end mock data only
-- No backend, database, or external API calls
-- Source files and production web build included
-
-## Suggested submission description
-
-ConflictVol is an interactive React proof of concept for retail investors and finance students. It converts global conflict events into an explainable short-term S&P 500 volatility signal. Users can move through an overview dashboard, a projection desk with risk-management guidance, and a conflict monitor that maps events to affected countries, industries, and companies. The prototype uses mock data and focuses exclusively on user experience.
+- Initial version of the class project application, generated with AI assistance (Claude)
+- Built from the Business Plan, Process & PM Plan, Use Case / Activity diagrams and the Assignment 1 prototype
+- Customer-facing and functional: sign-up/sign-in, dashboard, projections, conflict monitor, exposure, archive, alerts, notifications, settings
+- User-experience focus: prototype visual identity kept, responsive web + mobile layout, loading/empty/error states, validation, toasts
+- Backend, database and external-API adapters included (FastAPI, SQLAlchemy, ACLED / Alpha Vantage / SMTP adapters)
+- Source ZIP, screenshots and viewable links
 
 ## Instructor run instructions
 
-From the source folder:
-
-```powershell
-npm install
-npm run web
+```bash
+cd backend && pip install -r requirements.txt && uvicorn app.main:app
+# second terminal, repo root
+npm install && npm run web
 ```
-
-For a production export:
-
-```powershell
-npm run export:web
-```
-
-The exported site is written to `dist`.

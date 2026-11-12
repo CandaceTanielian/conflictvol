@@ -1,28 +1,13 @@
-import { cp, mkdir, rm, writeFile } from 'node:fs/promises';
+// Copies the Expo web export (dist) into deploy-dist for GitHub Pages.
+import { cp, rm, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 
-const projectRoot = process.cwd();
-const sourceRoot = join(projectRoot, 'dist');
-const outputRoot = join(projectRoot, 'deploy-dist');
+const root = process.cwd();
+const source = join(root, 'dist');
+const output = join(root, 'deploy-dist');
 
-await rm(outputRoot, { recursive: true, force: true });
-await mkdir(outputRoot, { recursive: true });
+await rm(output, { recursive: true, force: true });
+await cp(source, output, { recursive: true });
+await writeFile(join(output, '.nojekyll'), '');
 
-for (const directory of ['_expo', 'assets']) {
-  await cp(join(sourceRoot, directory), join(outputRoot, directory), { recursive: true });
-}
-
-for (const file of [
-  'index.html',
-  'metadata.json',
-  'conflictvol-logo-white.png',
-  'conflictvol-logo.png',
-  'conflictvol-logo.svg',
-  'conflictvol-signal-map.png',
-]) {
-  await cp(join(sourceRoot, file), join(outputRoot, file));
-}
-
-await writeFile(join(outputRoot, '.nojekyll'), '');
-
-console.log('Prepared clean GitHub Pages output in deploy-dist.');
+console.log('Prepared GitHub Pages output in deploy-dist.');
