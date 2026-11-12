@@ -4,6 +4,7 @@ import { api } from '../api/client';
 import { Card, ErrorState, H3, Loading, Lock, Muted, PageHead, Pill, toneForBias } from '../components/ui';
 import { biasColor, C, F } from '../theme';
 import { fmt, useApi, useApp } from '../state';
+import { useReveal } from '../motion';
 
 const PLACEHOLDER = [
   { ticker: 'XOM', name: 'Exxon Mobil', sector: 'Energy', exposure: 96, bias: 'tailwind' },
@@ -19,6 +20,7 @@ export default function Exposure() {
   const { data, error, loading, reload } = useApi('/exposure');
   const watch = useApi('/watchlist');
   const [sector, setSector] = useState('');
+  const grow = useReveal(data ? data.sectors.map((x: any) => x.exposure).join(',') : 'none', 1100, 100);
   if (loading && !data) return <Loading label="Loading sector exposure" />;
   if (error) return <ErrorState error={error} onRetry={reload} />;
 
@@ -53,7 +55,7 @@ export default function Exposure() {
               <Pressable key={s.sector} onPress={() => setSector(sector === s.sector ? '' : s.sector)} accessibilityRole="button" accessibilityState={{ selected: sector === s.sector }}
                 style={({ hovered }: any) => [st.barRow, hovered && { backgroundColor: C.panel2 }, { opacity: dim ? 0.4 : 1 }]}>
                 <Text style={st.barLabel} numberOfLines={1}>{s.sector}</Text>
-                <View style={st.barTrack}><View style={{ width: `${Math.max(1.5, s.exposure)}%`, height: '100%', backgroundColor: biasColor(s.bias), borderRadius: 4 }} /></View>
+                <View style={st.barTrack}><View style={{ width: `${Math.max(1.5, s.exposure) * grow}%`, height: '100%', backgroundColor: biasColor(s.bias), borderRadius: 4, boxShadow: `0 0 12px -2px ${biasColor(s.bias)}88` } as any} /></View>
                 <Text style={st.barVal}>{fmt.num(s.exposure, 0)}</Text>
               </Pressable>
             );

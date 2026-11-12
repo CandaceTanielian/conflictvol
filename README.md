@@ -19,11 +19,21 @@ The hosted GitHub Pages version runs in **demo mode**: it replays snapshots expo
 |---|---|
 | Front-end only, hard-coded mock data | FastAPI backend + SQLite/PostgreSQL; every number comes from the API |
 | 3 screens (Overview, Projections, Conflicts) | 8 screens + sign in/register: adds Exposure, Archive, Alerts, Notifications, Settings |
-| Static "REFRESH" animation | Refresh ingests new events, re-runs the projection and evaluates every alert |
+| Static "REFRESH" animation | Refresh ingests new events, re-runs the projection and evaluates every alert; GO LIVE streams them with BREAKING alerts |
+| "⌘ K" search box was decorative | Working ⌘K command palette |
 | One hard-coded followed company (Maersk) | Real watchlist: follow any covered S&P 500 ticker; highlighted across the feed, map and projection desk |
 | Static candlestick chart | Interactive chart: realized vol + projected range, S&P price with ±1σ cone, risk index; 1M/3M; hover to inspect |
 | Mock market clocks | Live session status for Tokyo, London, New York and S&P futures |
 | "Watch" toggle did nothing | Watch creates a real 1-week volatility alert |
+
+## The live experience
+
+- **GO LIVE**: streams new conflict events from the feed every few seconds. Each one triggers a **BREAKING** alert that drops in from the top; the risk gauge needle swings and every number rolls to its new value (rising risk flashes coral, easing risk flashes green).
+- **⌘K / Ctrl+K command palette** (or press `/`): jump to any screen, open any event, follow or unfollow any ticker, refresh data, or start the live feed.
+- **Ticker tape**: a Bloomberg-style crawl of the live feed under the nav bar; tap an item to open the event.
+- **Market transmission map**: pulsing radar rings on high-severity hotspots and animated arcs flowing from each conflict to Wall Street (NYSE).
+- **Charts that draw themselves**: volatility chart and sparklines animate in, with a pulsing "now" point and hover-to-inspect readouts.
+- **Polish**: staggered entrances, screen transitions, hover glows and a scanning line across the nav bar. All animation turns off automatically when the device has **reduce motion** enabled.
 
 ## Features → Use Cases
 
@@ -99,7 +109,9 @@ Without API keys the app uses a bundled sample feed, so the full ingest → scor
 ```
 App.tsx                  providers, fonts, screen routing
 src/screens/             Auth, Overview, Projections, Conflicts, Exposure, Archive, Alerts, Notifications, Settings
-src/components/          Shell (nav, banner, market clocks), VolChart, WorldMap, WatchlistEditor, ui
+src/components/          Shell (nav, live mode, market clocks), BreakingOverlay, CommandPalette, TickerTape, Gauge,
+                         Sparkline, VolChart, WorldMap (radar rings + transmission arcs), WatchlistEditor, ui
+src/motion.tsx           animation primitives (rolling numbers, fade-ins, pulses, reveals; respects reduce-motion)
 src/api/                 client.ts (REST) · demo.ts + demo-data.json (in-browser backend for GitHub Pages)
 src/theme.ts, state.tsx  design tokens · app state, navigation, data hooks
 backend/app/             FastAPI app: models, routers, services, seed data

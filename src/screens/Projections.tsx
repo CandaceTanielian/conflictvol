@@ -4,13 +4,15 @@ import WatchlistEditor from '../components/WatchlistEditor';
 import { Bar, Body, Btn, Card, ErrorState, Eyebrow, H2, H3, Loading, Muted, PageHead, Pill, Seg, toneForLevel, toneForRegime } from '../components/ui';
 import { C, F } from '../theme';
 import { fmt, useApi, useApp } from '../state';
+import { AnimatedNumber, FadeIn, useReveal } from '../motion';
 
 type H = '1d' | '1w' | '1m';
 
 function Waterfall({ r }: { r: any }) {
   const p = r.projection;
+  const grow = useReveal(`${r.horizon}-${p.vol}`, 1100, 150);
   const max = Math.max(p.high, r.realized_vol, 17.5) + 3;
-  const pct = (v: number) => `${(v / max) * 100}%` as const;
+  const pct = (v: number) => `${(v / max) * 100 * grow}%` as const;
   const rows = [
     { label: 'Long-run average', from: 0, to: 17.5, color: '#5A6157', val: '17.5' },
     { label: "Today's realized (20d)", from: 0, to: r.realized_vol, color: C.cyan, val: fmt.num(r.realized_vol) },
@@ -59,6 +61,7 @@ export default function Projections() {
             <View style={st.signal}>
               <Text style={st.signalLabel}>MODEL POSTURE</Text>
               <Text style={st.signalValue}>{desk.posture.label.toUpperCase()}</Text>
+              <View style={{ height: 4, backgroundColor: '#5A3433', borderRadius: 2, marginTop: 8, overflow: 'hidden' }}><View style={{ width: `${desk.posture.bear_pct}%`, height: '100%', backgroundColor: C.coral }} /></View>
               <Text style={st.signalMeta}>{desk.posture.bear_pct}% bear · {desk.posture.bull_pct}% bull</Text>
             </View>
           } />
@@ -67,14 +70,14 @@ export default function Projections() {
           <View style={st.summaryCard}>
             <Eyebrow>EXPECTED VOLATILITY</Eyebrow>
             <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 8 }}>
-              <Text style={st.summaryValue}>{fmt.pct(hz.vol)}</Text>
+              <AnimatedNumber value={hz.vol} suffix="%" style={st.summaryValue} />
               <Pill tone={toneForRegime(hz.regime)}>{hz.regime}</Pill>
             </View>
             <Muted>{fmt.signed(hz.change)} pts vs. realized · range {fmt.num(hz.low)}–{fmt.num(hz.high)}%</Muted>
           </View>
           <View style={st.summaryCard}>
             <Eyebrow>MODEL CONFIDENCE</Eyebrow>
-            <Text style={[st.summaryValue, { marginTop: 8 }]}>{desk.confidence} / 100</Text>
+            <AnimatedNumber value={desk.confidence} decimals={0} suffix=" / 100" style={[st.summaryValue, { marginTop: 8 }]} />
             <Muted>Narrower ranges score higher · S&amp;P ±{fmt.num(hz.expected_move_pct, 2)}% ({fmt.int(hz.expected_move_pts)} pts)</Muted>
           </View>
           <View style={st.summaryCard}>
@@ -173,7 +176,7 @@ export default function Projections() {
 }
 
 const st = StyleSheet.create({
-  panel: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 22 },
+  panel: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.line, borderRadius: 12, padding: 22, boxShadow: `0 30px 60px -45px ${C.coral}` } as any,
   signal: { minWidth: 160, backgroundColor: C.coralBg, borderWidth: 1, borderColor: '#8C4B41', borderRadius: 8, padding: 12 },
   signalLabel: { color: '#D8B1A9', fontFamily: F.bold, fontSize: 8, letterSpacing: 0.7 },
   signalValue: { color: C.coral, fontFamily: F.bold, fontSize: 18, marginTop: 4 },

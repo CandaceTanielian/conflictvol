@@ -6,6 +6,7 @@ import WorldMap from '../components/WorldMap';
 import { Bar, Btn, Card, Chips, Empty, ErrorState, Eyebrow, H3, LevelPill, Loading, Muted, PageHead, Pill, Sev, Sheet, s as ui, toneForBias } from '../components/ui';
 import { biasColor, C, F, sevColor } from '../theme';
 import { fmt, useApi, useApp } from '../state';
+import { AnimatedNumber, FadeIn } from '../motion';
 
 function EventDetail({ id, onClose }: { id: number | null; onClose: () => void }) {
   const { go } = useApp();
@@ -117,7 +118,7 @@ export default function Conflicts() {
             </Pressable>
           } />
         <View style={st.summary}>
-          <View><Eyebrow>ACTIVE SIGNALS</Eyebrow><Text style={st.summaryValue}>{data ? events.length : '—'}</Text></View>
+          <View><Eyebrow>ACTIVE SIGNALS</Eyebrow><AnimatedNumber value={data ? events.length : 0} decimals={0} style={st.summaryValue} /></View>
           <View><Eyebrow>MOST EXPOSED INDUSTRY</Eyebrow><Text style={st.summarySmall}>{topSector || '—'}</Text></View>
           <View><Eyebrow>MARKET TILT</Eyebrow><Text style={[st.summarySmall, { color: cri >= 50 ? C.coral : cri >= 25 ? C.amber : C.green }]}>{cri >= 50 ? 'Risk-off' : cri >= 25 ? 'Cautious' : 'Risk-on'}</Text></View>
           <View><Eyebrow>CONFLICT RISK INDEX</Eyebrow><Text style={st.summarySmall}>{fmt.num(cri)} / 100</Text></View>
@@ -146,11 +147,12 @@ export default function Conflicts() {
           {loading && !data ? <Loading /> : events.length === 0 ? (
             <Card><Empty title="No events match these filters" body="Try a different region, level or search term."
               action={<Btn small label="CLEAR FILTERS" onPress={() => { setQ(''); setLevel(''); setRegion(''); go('conflicts'); }} />} /></Card>
-          ) : events.slice(0, showAll ? events.length : 8).map((e) => {
+          ) : events.slice(0, showAll ? events.length : 8).map((e, idx) => {
             const isFollowed = e.followed_tickers.length > 0;
             return (
-              <Pressable key={e.id} onPress={() => setSelected(e.id)} accessibilityRole="button"
-                style={({ hovered }: any) => [st.card, isFollowed && st.cardFollowed, selected === e.id && { borderColor: C.cyan }, hovered && { backgroundColor: '#323534' }]}>
+              <FadeIn key={e.id} delay={Math.min(idx, 8) * 60}>
+              <Pressable onPress={() => setSelected(e.id)} accessibilityRole="button"
+                style={({ hovered }: any) => [st.card, isFollowed && st.cardFollowed, selected === e.id && { borderColor: C.cyan }, hovered && st.cardHover]}>
                 <View style={st.cardTop}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <LevelPill level={e.level} />
@@ -166,6 +168,7 @@ export default function Conflicts() {
                   <Text style={[st.impact, { color: e.vol_points >= 0 ? C.coral : C.green }]}>{fmt.signed(e.vol_points, 2)} vol pts estimated pressure</Text>
                 </View>
               </Pressable>
+              </FadeIn>
             );
           })}
           {events.length > 8 && (
@@ -192,7 +195,8 @@ const st = StyleSheet.create({
   legend: { flexDirection: 'row', flexWrap: 'wrap', gap: 14, marginTop: 10, paddingHorizontal: 4 },
   legendText: { color: C.muted, fontFamily: F.regular, fontSize: 10.5 },
   card: { backgroundColor: C.panel2, borderWidth: 1, borderColor: C.line, borderRadius: 10, padding: 16 },
-  cardFollowed: { borderColor: C.lime },
+  cardFollowed: { borderColor: C.lime + 'AA', boxShadow: `0 0 0 1px ${C.lime}22, 0 12px 30px -20px ${C.lime}` } as any,
+  cardHover: { backgroundColor: '#323534', transform: [{ translateY: -2 }], boxShadow: `0 16px 36px -18px #000, 0 0 0 1px ${C.lime}44` } as any,
   cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   followedBadge: { color: C.lime, fontFamily: F.bold, fontSize: 8.5, letterSpacing: 0.6 },
   title: { color: C.text, fontFamily: F.semi, fontSize: 14.5, lineHeight: 20, marginTop: 10 },

@@ -22,6 +22,7 @@ from app.main import app  # noqa: E402
 from app.seed import DEMO_EMAIL, DEMO_PASSWORD  # noqa: E402
 
 OUT = ROOT.parent / "src" / "api" / "demo-data.json"
+PENDING = 8  # queued events in the sample feed (see app/seed.py)
 
 
 def main():
@@ -34,7 +35,7 @@ def main():
         watch0 = get("/watchlist")
         notes0 = get("/notifications")
         snapshots, refresh = [], None
-        for i in range(4):
+        for i in range(PENDING + 1):
             events = get("/events")
             snap = {
                 "dashboard": get("/dashboard"),
@@ -47,7 +48,7 @@ def main():
                 "refresh": refresh,
             }
             snapshots.append(snap)
-            if i < 3:
+            if i < PENDING:
                 refresh = c.post("/api/data/refresh", headers=h).json()
 
         user = tok["user"]

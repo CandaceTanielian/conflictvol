@@ -24,7 +24,7 @@ FULL_HEIGHT_JS = """() => {
 
 
 def shot(page, name, full=True, keep_toasts=False):
-    page.wait_for_timeout(900)
+    page.wait_for_timeout(1700)
     page.evaluate(f"(() => {{ const t = document.querySelector('[data-testid=toasts]'); if (t) t.style.visibility = '{'visible' if keep_toasts else 'hidden'}'; }})()")
     if full:
         h = page.evaluate(FULL_HEIGHT_JS)
@@ -69,7 +69,7 @@ with sync_playwright() as p:
     nav(page, "Conflicts")
     page.get_by_text("MARKET TRANSMISSION").first.wait_for()
     shot(page, "05_conflict_monitor")
-    page.get_by_text("Tanker seized near the Strait of Hormuz").first.click()
+    page.get_by_text("Tanker seized near the Strait of Hormuz", exact=True).first.click()
     page.get_by_text("How it's scored").wait_for()
     shot(page, "06_event_detail", full=False)
     page.get_by_role("button", name="Close", exact=True).click()
@@ -97,8 +97,17 @@ with sync_playwright() as p:
     nav(page, "Overview")
     page.get_by_text("Conflict intelligence").wait_for()
     page.get_by_role("button", name="Refresh data: ingest new events, re-run the projection and check alerts").click()
-    page.get_by_text("New event ingested", exact=False).wait_for()
-    shot(page, "11_refresh_alerts_fired", full=False, keep_toasts=True)
+    page.get_by_text("VIEW EVENT", exact=False).wait_for()
+    page.wait_for_timeout(900)
+    shot(page, "11_breaking_alert", full=False, keep_toasts=True)
+    page.get_by_role("button", name="Dismiss breaking alert").click()
+
+    page.keyboard.press("Control+k")
+    page.get_by_label("Command palette search").wait_for()
+    page.get_by_label("Command palette search").fill("hor")
+    shot(page, "17_command_palette", full=False)
+    page.keyboard.press("Escape")
+    page.wait_for_timeout(400)
 
     page.get_by_role("button", name="Notifications", exact=False).first.click()
     page.get_by_text("MARK ALL READ").wait_for()

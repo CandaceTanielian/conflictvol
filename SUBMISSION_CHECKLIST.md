@@ -3,7 +3,7 @@
 ## Files to submit on Canvas (one team member)
 
 1. `ConflictVol_Source.zip`: full source (Expo app, FastAPI backend, tests, README).
-2. `ConflictVol_Screenshots.pdf`: 16 captioned screenshots (desktop + mobile).
+2. `ConflictVol_Screenshots.pdf`: 18 captioned screenshots (desktop + mobile, live mode, command palette).
 3. Links:
    - Live app: https://candacetanielian.github.io/conflictvol/ (demo account: demo@conflictvol.app / Demo1234!)
    - Source: https://github.com/CandaceTanielian/conflictvol

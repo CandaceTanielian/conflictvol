@@ -16,6 +16,7 @@ import Projections from './src/screens/Projections';
 import Settings from './src/screens/Settings';
 import { AppProvider, Screen, useApp } from './src/state';
 import { C } from './src/theme';
+import { FadeIn } from './src/motion';
 
 const SCREENS: Record<Screen, () => React.ReactElement | null> = {
   overview: Overview, projections: Projections, conflicts: Conflicts, exposure: Exposure,
@@ -27,7 +28,7 @@ function Root() {
   if (!ready) return <View style={{ flex: 1, backgroundColor: C.ink, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={C.lime} /></View>;
   if (!user) return <Auth />;
   const Page = SCREENS[screen];
-  return <Shell><Page /></Shell>;
+  return <Shell><FadeIn key={screen} distance={14} duration={380}><Page /></FadeIn></Shell>;
 }
 
 export default function App() {

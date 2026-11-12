@@ -2,6 +2,10 @@ import { useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import { api } from '../api/client';
 import VolChart, { Metric } from '../components/VolChart';
+import Gauge from '../components/Gauge';
+import Sparkline from '../components/Sparkline';
+import WorldMap from '../components/WorldMap';
+import { AnimatedNumber, FadeIn } from '../motion';
 import { Bar, Card, ErrorState, Eyebrow, H3, LevelPill, Loading, Muted, Pill, Seg, toneForRegime } from '../components/ui';
 import { C, F, levelColor, regimeColor } from '../theme';
 import { fmt, useApi, useApp } from '../state';
@@ -9,7 +13,7 @@ import { fmt, useApi, useApp } from '../state';
 export function FeedItem({ e, onPress }: { e: any; onPress: () => void }) {
   const followed = e.followed_tickers?.length > 0;
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" style={({ hovered }: any) => [st.newsItem, followed && st.newsFollowed, hovered && { backgroundColor: C.panel2 }]}>
+    <Pressable onPress={onPress} accessibilityRole="button" style={({ hovered }: any) => [st.newsItem, followed && st.newsFollowed, hovered && st.newsHover]}>
       <View style={st.newsHead}>
         <LevelPill level={e.level} />
         <Text style={st.newsAge}>{fmt.ago(e.occurred_at)}</Text>
@@ -61,16 +65,24 @@ export default function Overview() {
     } catch (e: any) { toast("Couldn't update watch", e.message); }
   }
 
-  const tickers: [Metric | 'proj', string, string, string, string][] = [
-    ['price', 'S&P 500', fmt.money(d.spot), `${fmt.signed(d.spot_change_pct, 2)}%`, d.spot_change_pct >= 0 ? C.green : C.coral],
-    ['vol', 'REALIZED VOL 20D', fmt.pct(d.realized_vol), `avg 17.5%`, C.muted],
-    ['cri', 'CONFLICT RISK INDEX', fmt.num(d.cri), `${fmt.signed(d.cri_change)} wk · ${d.cri_label}`, d.cri_change >= 0 ? C.coral : C.green],
-    ['proj', 'PROJECTED VOL 1W', fmt.pct(wk.vol), `${fmt.signed(wk.change)} pts`, wk.change >= 0 ? C.coral : C.green],
+  const tickers: { m: Metric | 'proj'; label: string; value: number; fmt: (v: number) => string; change: string; color: string; spark: number[]; sparkColor: string; upIsGood?: boolean }[] = [
+    { m: 'price', label: 'S&P 500', value: d.spot, fmt: (v) => fmt.money(v), change: `${fmt.signed(d.spot_change_pct, 2)}%`, color: d.spot_change_pct >= 0 ? C.green : C.coral, spark: d.series.map((x: any) => x.close), sparkColor: C.cyan, upIsGood: true },
+    { m: 'vol', label: 'REALIZED VOL 20D', value: d.realized_vol, fmt: (v) => `${v.toFixed(1)}%`, change: 'avg 17.5%', color: C.muted, spark: d.series.map((x: any) => x.realized_vol).filter((v: any) => v !== null), sparkColor: C.text },
+    { m: 'cri', label: 'CONFLICT RISK INDEX', value: d.cri, fmt: (v) => v.toFixed(1), change: `${fmt.signed(d.cri_change)} wk · ${d.cri_label}`, color: d.cri_change >= 0 ? C.coral : C.green, spark: d.series.map((x: any) => x.cri), sparkColor: C.coral },
+    { m: 'proj', label: 'PROJECTED VOL 1W', value: wk.vol, fmt: (v) => `${v.toFixed(1)}%`, change: `${fmt.signed(wk.change)} pts`, color: wk.change >= 0 ? C.coral : C.green, spark: [d.realized_vol, ...d.forecast.map((f: any) => f.point)], sparkColor: C.lime },
   ];
 
   const right = (
+    <FadeIn delay={150} style={!wide ? { width: '100%' } : undefined}>
     <View style={[st.rightPanel, !wide && { width: '100%' }]}>
-      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+      <View style={st.gaugeBox}>
+        <Text style={[st.panelMeta, { marginTop: 0, alignSelf: 'flex-start' }]}>CONFLICT RISK INDEX · 0–100</Text>
+        <Gauge value={d.cri} label={d.cri_label} size={250} />
+        <Text style={{ color: d.cri_change >= 0 ? C.coral : C.green, fontFamily: F.bold, fontSize: 10, marginTop: 4 }}>
+          {d.cri_change >= 0 ? '▲' : '▼'} {fmt.signed(d.cri_change)} THIS WEEK · {d.active_event_count} ACTIVE EVENTS
+        </Text>
+      </View>
+      <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 18 }}>
         <View>
           <Text style={st.panelTitle}>Conflict intelligence</Text>
           <Text style={st.panelMeta}><Text style={{ color: C.coral }}>▸ </Text>CURATED SIGNAL FEED</Text>
@@ -92,26 +104,31 @@ export default function Overview() {
         <Text style={st.noteText}>ConflictVol scores each event for severity, scope, recency and regional market relevance, then adds that conflict premium to mean-reverting realized volatility to produce an explainable range.</Text>
       </View>
     </View>
+    </FadeIn>
   );
 
   return (
     <View style={[st.grid, !wide && { flexDirection: 'column' }]}>
       <View style={{ flex: 1, minWidth: 0, width: wide ? undefined : '100%' }}>
         <View style={st.tickerRow}>
-          {tickers.map(([m, label, value, change, color]) => {
-            const sel = m === metric || (m === 'proj' && metric === 'vol' && false);
+          {tickers.map((t, i) => {
+            const sel = t.m === metric;
             return (
-              <Pressable key={label} onPress={() => (m === 'proj' ? go('projections') : setMetric(m as Metric))} accessibilityRole="button"
-                style={({ hovered }: any) => [st.ticker, sel && st.tickerSelected, hovered && !sel && { borderColor: '#5A6157' }]}>
-                <Text style={st.tickerSymbol}>{label}</Text>
-                <Text style={st.tickerPrice}>{value}</Text>
-                <Text style={[st.tickerChange, { color }]}>{change}</Text>
-              </Pressable>
+              <FadeIn key={t.label} delay={i * 70} style={{ flex: 1, minWidth: 150 }}>
+                <Pressable onPress={() => (t.m === 'proj' ? go('projections') : setMetric(t.m as Metric))} accessibilityRole="button"
+                  style={({ hovered }: any) => [st.ticker, sel && st.tickerSelected, hovered && st.glow]}>
+                  <Text style={st.tickerSymbol}>{t.label}</Text>
+                  <AnimatedNumber value={t.value} format={t.fmt} upIsGood={t.upIsGood} style={st.tickerPrice} />
+                  <Text style={[st.tickerChange, { color: t.color }]}>{t.change}</Text>
+                  <View style={{ marginTop: 8, marginHorizontal: -4 }}><Sparkline data={t.spark} color={t.sparkColor} id={t.m} height={30} /></View>
+                </Pressable>
+              </FadeIn>
             );
           })}
         </View>
 
-        <Card pad={22}>
+        <FadeIn delay={220}>
+        <Card pad={22} style={st.mainCard}>
           <View style={st.cardHeader}>
             <View style={{ flex: 1, minWidth: 220 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 9, flexWrap: 'wrap' }}>
@@ -136,7 +153,10 @@ export default function Overview() {
           </View>
 
           <View style={st.projectionRow}>
-            <Text style={st.projection}>{fmt.num(wk.vol)}<Text style={st.projectionUnit}>%</Text></Text>
+            <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+              <AnimatedNumber value={wk.vol} style={st.projection} />
+              <Text style={[st.projectionUnit, { marginBottom: 8 }]}>%</Text>
+            </View>
             <View>
               <Text style={[st.deltaText, { color: wk.change >= 0 ? C.coral : C.green }]}>{fmt.signed(wk.change)} pts</Text>
               <Text style={st.deltaSub}>vs. realized {fmt.pct(d.realized_vol)}</Text>
@@ -178,6 +198,20 @@ export default function Overview() {
             </View>
           </View>
         </Card>
+        </FadeIn>
+
+        <FadeIn delay={320}>
+          <Card pad={14} style={{ marginTop: 18 }}>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 6, paddingBottom: 10 }}>
+              <View>
+                <Text style={st.sectionTitle}>Market transmission</Text>
+                <Text style={st.panelMeta}>CONFLICT HOTSPOTS → WALL STREET · LIVE</Text>
+              </View>
+              <Pressable onPress={() => go('conflicts')}><Text style={st.viewLink}>Open monitor ↗</Text></Pressable>
+            </View>
+            <WorldMap events={d.top_events} onSelect={(e) => go('conflicts', { eventId: e.id })} />
+          </Card>
+        </FadeIn>
 
         <View style={st.sectionHeader}>
           <Text style={st.sectionTitle}>Signal breakdown</Text>
@@ -185,12 +219,12 @@ export default function Overview() {
         </View>
         <View style={st.breakdownRow}>
           {d.horizons.map((h: any) => (
-            <Pressable key={h.horizon} onPress={() => go('projections')} style={st.breakdownCard}>
+            <Pressable key={h.horizon} onPress={() => go('projections')} style={({ hovered }: any) => [st.breakdownCard, hovered && st.glow]}>
               <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
                 <Text style={st.breakdownLabel}>{h.label.toUpperCase()}</Text>
                 <Text style={[st.breakdownLabel, { color: regimeColor(h.regime) }]}>{h.regime.toUpperCase()}</Text>
               </View>
-              <Text style={st.breakdownValue}>{fmt.pct(h.vol)}</Text>
+              <AnimatedNumber value={h.vol} suffix="%" style={st.breakdownValue} />
               <Bar value={(h.vol / 40) * 100} color={regimeColor(h.regime)} />
               <Text style={st.breakdownMeta}>Range {fmt.num(h.low)}–{fmt.num(h.high)}% · S&amp;P ±{fmt.num(h.expected_move_pct, 2)}%</Text>
             </Pressable>
@@ -228,8 +262,12 @@ function Legend({ color, label, dashed, soft }: { color: string; label: string; 
 export const st = StyleSheet.create({
   grid: { flexDirection: 'row', gap: 18, alignItems: 'flex-start' },
   tickerRow: { flexDirection: 'row', gap: 9, marginBottom: 18, flexWrap: 'wrap' },
-  ticker: { flex: 1, minWidth: 150, backgroundColor: C.panel, borderWidth: 1, borderColor: C.line, borderRadius: 8, padding: 12 },
+  ticker: { backgroundColor: C.panel, borderWidth: 1, borderColor: C.line, borderRadius: 8, padding: 12 },
   tickerSelected: { borderColor: C.cyan, backgroundColor: '#2C312E' },
+  glow: { borderColor: C.lime + '99', boxShadow: `0 10px 30px -12px ${C.lime}88, 0 0 0 1px ${C.lime}33`, transform: [{ translateY: -2 }] } as any,
+  mainCard: { boxShadow: `0 30px 60px -40px ${C.lime}55` } as any,
+  gaugeBox: { alignItems: 'center', paddingBottom: 16, borderBottomWidth: 1, borderBottomColor: C.lineSoft },
+  newsHover: { backgroundColor: C.panel2, boxShadow: `inset 2px 0 0 ${C.lime}` } as any,
   tickerSymbol: { color: C.muted, fontFamily: F.bold, fontSize: 8, letterSpacing: 0.8 },
   tickerPrice: { color: C.text, fontFamily: F.semi, fontSize: 18, marginTop: 7 },
   tickerChange: { fontFamily: F.bold, fontSize: 9.5, marginTop: 4 },

@@ -3,6 +3,7 @@ import { LayoutChangeEvent, Platform, Text, View } from 'react-native';
 import Svg, { Defs, G, Line, LinearGradient, Path, Polyline, Rect, Stop, Text as SvgText } from 'react-native-svg';
 import { C, F } from '../theme';
 import { fmt } from '../state';
+import { Pulse, useReveal } from '../motion';
 
 export type Metric = 'vol' | 'price' | 'cri';
 
@@ -18,6 +19,7 @@ type Props = {
 export default function VolChart({ series, forecast, metric, days, height = 260, spot }: Props) {
   const [w, setW] = useState(0);
   const [hover, setHover] = useState<number | null>(null);
+  const reveal = useReveal(`${metric}-${days}-${series[series.length - 1]?.cri}-${forecast[0]?.point}`, 1300);
   const onLayout = (e: LayoutChangeEvent) => setW(e.nativeEvent.layout.width);
 
   const model = useMemo(() => {
@@ -46,7 +48,9 @@ export default function VolChart({ series, forecast, metric, days, height = 260,
   const ticks = Array.from({ length: 5 }, (_, i) => model.min + ((model.max - model.min) * i) / 4);
   const label = (v: number) => (metric === 'vol' ? `${Math.round(v)}%` : metric === 'price' ? fmt.int(v) : `${Math.round(v)}`);
 
-  const histPts = model.hv.map((v, i) => (v === null ? null : `${x(i)},${y(v)}`)).filter(Boolean).join(' ');
+  const visibleN = Math.max(2, Math.ceil(model.hv.length * Math.min(1, reveal / 0.8)));
+  const histPts = model.hv.slice(0, visibleN).map((v, i) => (v === null ? null : `${x(i)},${y(v)}`)).filter(Boolean).join(' ');
+  const fcOpacity = Math.max(0, (reveal - 0.75) / 0.25);
   const lastV = model.hv[n - 1] ?? 0;
   const fcLine = model.fc.length ? [`${x(n - 1)},${y(lastV)}`, ...model.fc.map((f, i) => `${x(n + i)},${y(f.mid)}`)].join(' ') : '';
   const band = model.fc.length
@@ -93,9 +97,9 @@ export default function VolChart({ series, forecast, metric, days, height = 260,
           ))}
           {criArea ? <Path d={criArea} fill="url(#cri)" /> : null}
           {metric === 'vol' && <Line x1={L} x2={L + plotW} y1={y(17.5)} y2={y(17.5)} stroke={C.cyan} strokeDasharray="2 5" opacity={0.6} />}
-          {band ? <Path d={band} fill={C.lime} opacity={0.14} /> : null}
+          {band ? <Path d={band} fill={C.lime} opacity={0.14 * fcOpacity} /> : null}
           <Polyline points={histPts} fill="none" stroke={color} strokeWidth={2} strokeLinejoin="round" />
-          {fcLine ? <Polyline points={fcLine} fill="none" stroke={C.lime} strokeWidth={2} strokeDasharray="5 4" /> : null}
+          {fcLine ? <Polyline points={fcLine} fill="none" stroke={C.lime} strokeWidth={2} strokeDasharray="5 4" opacity={fcOpacity} /> : null}
           {model.fc.length ? (
             <G>
               <Line x1={x(n - 1)} x2={x(n - 1)} y1={T} y2={T + plotH} stroke={C.muted} strokeDasharray="2 3" opacity={0.7} />
@@ -109,6 +113,12 @@ export default function VolChart({ series, forecast, metric, days, height = 260,
           {hover !== null && <Line x1={x(hover)} x2={x(hover)} y1={T} y2={T + plotH} stroke={C.lime} strokeWidth={1} opacity={0.7} />}
           {hover !== null && hoverInfo?.a !== null && hoverInfo?.a !== undefined && <Rect x={x(hover) - 3} y={y(hoverInfo.a) - 3} width={6} height={6} fill={C.lime} />}
         </Svg>
+      )}
+      {w > 0 && reveal >= 1 && model.hv[n - 1] !== null && (
+        <View pointerEvents="none" style={{ position: 'absolute', left: x(n - 1) - 6, top: y(lastV) - 6, width: 12, height: 12, alignItems: 'center', justifyContent: 'center' }}>
+          <Pulse size={12} color={metric === 'vol' ? C.lime : color} duration={1600} />
+          <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: metric === 'vol' ? C.lime : color }} />
+        </View>
       )}
       {hoverInfo && (
         <View style={{ position: 'absolute', left: L + 6, top: 4, backgroundColor: C.ink, borderWidth: 1, borderColor: C.line, borderRadius: 6, paddingHorizontal: 9, paddingVertical: 6 }} pointerEvents="none">

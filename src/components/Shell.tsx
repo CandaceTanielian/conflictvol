@@ -1,10 +1,36 @@
-import { ReactNode, useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, useWindowDimensions, View } from 'react-native';
+import { ReactNode, useCallback, useEffect, useRef, useState } from 'react';
+import { Animated, Easing, Platform, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import Svg, { Circle, Path } from 'react-native-svg';
 import { api, DEMO } from '../api/client';
 import { C, F } from '../theme';
 import { fmt, initials, Screen, useApp, useApi } from '../state';
 import { Logo, Pill, Toasts } from './ui';
+import BreakingOverlay, { Breaking } from './BreakingOverlay';
+import CommandPalette from './CommandPalette';
+import TickerTape from './TickerTape';
+import { Breathe, NATIVE, prefersReducedMotion } from '../motion';
+
+const LIVE_INTERVAL_MS = 9000;
+
+function Scanline() {
+  const { width } = useWindowDimensions();
+  const x = useRef(new Animated.Value(0)).current;
+  useEffect(() => {
+    if (prefersReducedMotion()) return;
+    const loop = Animated.loop(Animated.sequence([
+      Animated.timing(x, { toValue: 1, duration: 5200, easing: Easing.inOut(Easing.quad), useNativeDriver: NATIVE }),
+      Animated.delay(1800),
+      Animated.timing(x, { toValue: 0, duration: 0, useNativeDriver: NATIVE }),
+    ]));
+    loop.start();
+    return () => loop.stop();
+  }, [x]);
+  return (
+    <Animated.View pointerEvents="none" style={{ position: 'absolute', bottom: -1, left: 0, width: 220, height: 2,
+      backgroundColor: C.lime, opacity: 0.85, boxShadow: `0 0 12px 2px ${C.lime}`,
+      transform: [{ translateX: x.interpolate({ inputRange: [0, 1], outputRange: [-220, width] }) }] } as any} />
+  );
+}
 
 const NAV: [Screen, string, string][] = [
   ['overview', 'Overview', '▦'],
@@ -61,30 +87,66 @@ export default function Shell({ children }: { children: ReactNode }) {
   const { width } = useWindowDimensions();
   const compact = width < 900, phone = width < 640;
   const now = useNow();
-  const [q, setQ] = useState('');
   const [busy, setBusy] = useState(false);
   const [synced, setSynced] = useState(false);
+  const [live, setLive] = useState(false);
+  const [palette, setPalette] = useState(false);
+  const [breaking, setBreaking] = useState<Breaking | null>(null);
   const showSignals = screen === 'overview' || screen === 'projections' || screen === 'conflicts';
   const dash = useApi('/dashboard');
+  const busyRef = useRef(false);
+  const ctxRef = useRef({ bump, toast });
+  ctxRef.current = { bump, toast };
 
-  async function refresh() {
+  const refresh = useCallback(async (fromLive = false) => {
+    const { bump, toast } = ctxRef.current;
+    if (busyRef.current) return;
+    busyRef.current = true;
     setBusy(true);
     try {
       const r = await api('/data/refresh', { method: 'POST' });
-      if (r.feed_empty) toast("You're up to date", 'No new conflict events since the last refresh.');
-      else {
-        const trig = r.alerts_triggered ? ` · ${r.alerts_triggered} alert${r.alerts_triggered > 1 ? 's' : ''} triggered` : '';
-        toast(`New event ingested${trig}`, `${r.ingested.map((e: any) => e.title).join('; ')}. Risk index ${fmt.num(r.cri_before)} → ${fmt.num(r.cri_after)}, 1-week vol ${fmt.pct(r.vol_1w_before)} → ${fmt.pct(r.vol_1w_after)}.`, 7000);
+      if (r.feed_empty) {
+        if (fromLive) setLive(false);
+        toast(fromLive ? 'Live feed caught up' : "You're up to date", 'No more queued conflict events in the sample feed.');
+      } else {
+        const ev = r.ingested[0];
+        let detail: any = {};
+        try { detail = await api(`/events/${ev.id}`); } catch { /* show what we have */ }
+        setBreaking({
+          id: ev.id, title: ev.title, region: ev.region, level: detail.level || 'WATCH', summary: detail.summary || '',
+          market_effect: detail.market_effect || '', deescalation: !!detail.deescalation,
+          cri_before: r.cri_before, cri_after: r.cri_after, vol_before: r.vol_1w_before, vol_after: r.vol_1w_after, alerts: r.alerts_triggered,
+        });
       }
       setSynced(true);
       setTimeout(() => setSynced(false), 1800);
       bump();
     } catch (e: any) {
       toast('Refresh failed', e.message);
+      if (fromLive) setLive(false);
     } finally {
+      busyRef.current = false;
       setBusy(false);
     }
-  }
+  }, []);
+
+  useEffect(() => {
+    if (!live) return;
+    refresh(true);
+    const t = setInterval(() => refresh(true), LIVE_INTERVAL_MS);
+    return () => clearInterval(t);
+  }, [live, refresh]);
+
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof window === 'undefined') return;
+    const onKey = (e: KeyboardEvent) => {
+      const typing = ['INPUT', 'TEXTAREA'].includes((e.target as HTMLElement)?.tagName);
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') { e.preventDefault(); setPalette((p) => !p); }
+      else if (e.key === '/' && !typing) { e.preventDefault(); setPalette(true); }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
 
   const dateLine = `${now.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', year: 'numeric', timeZone: 'America/Los_Angeles' }).toUpperCase()}  /  ${now.toLocaleTimeString('en-US', { hour12: false, timeZone: 'America/Los_Angeles' })} PT`;
   const plan = user?.effective_plan;
@@ -120,7 +182,9 @@ export default function Shell({ children }: { children: ReactNode }) {
             </Pressable>
           )}
         </View>
+        <Scanline />
       </View>
+      <TickerTape events={dash.data?.top_events || []} cri={dash.data?.cri} vol={dash.data?.horizons?.find((h: any) => h.horizon === '1w')?.vol} />
 
       <ScrollView style={{ flex: 1 }} contentContainerStyle={[st.main, phone && { padding: 16 }]} keyboardShouldPersistTaps="handled">
         <View style={st.topbar}>
@@ -132,14 +196,19 @@ export default function Shell({ children }: { children: ReactNode }) {
             {DEMO && <Pill tone="cyan">DEMO MODE</Pill>}
             <Pill tone="neutral">SAMPLE DATA FEED</Pill>
             {!phone && (
-              <View style={st.search}>
+              <Pressable onPress={() => setPalette(true)} accessibilityRole="button" accessibilityLabel="Open command palette"
+                style={({ hovered }: any) => [st.search, hovered && { borderColor: '#5A6157', backgroundColor: C.panel }]}>
                 <Text style={{ color: C.muted, fontSize: 14 }}>⌕</Text>
-                <TextInput value={q} onChangeText={setQ} placeholder="Search events, tickers" placeholderTextColor={C.muted}
-                  style={st.searchInput} accessibilityLabel="Search events and tickers" returnKeyType="search"
-                  onSubmitEditing={() => { go('conflicts', { q: q.trim() }); setQ(''); }} />
-              </View>
+                <Text style={st.searchText}>Search or jump to…</Text>
+                <Text style={st.shortcut}>⌘ K</Text>
+              </Pressable>
             )}
-            <Pressable onPress={refresh} disabled={busy} accessibilityRole="button" accessibilityLabel="Refresh data: ingest new events, re-run the projection and check alerts"
+            <Pressable onPress={() => setLive((l) => !l)} accessibilityRole="switch" accessibilityState={{ checked: live }}
+              accessibilityLabel={live ? 'Stop live feed' : 'Start live feed'} style={[st.liveBtn, live && st.liveOn]}>
+              {live ? <Breathe min={0.25} duration={600}><View style={st.liveDotOn} /></Breathe> : <View style={[st.liveDotOn, { backgroundColor: C.muted }]} />}
+              <Text style={[st.refreshText, { color: live ? C.coral : C.text }]}>{live ? 'LIVE' : 'GO LIVE'}</Text>
+            </Pressable>
+            <Pressable onPress={() => refresh(false)} disabled={busy} accessibilityRole="button" accessibilityLabel="Refresh data: ingest new events, re-run the projection and check alerts"
               style={({ pressed }) => [st.refresh, pressed && { opacity: 0.65 }]}>
               <Text style={st.refreshText}>{busy ? 'SYNCING' : synced ? 'SYNCED' : 'REFRESH'} <Text style={{ color: synced ? C.lime : C.muted }}>↻</Text></Text>
             </Pressable>
@@ -171,6 +240,8 @@ export default function Shell({ children }: { children: ReactNode }) {
         <View style={{ marginTop: 20 }}>{children}</View>
         <Text style={st.footer}>ConflictVol projections are statistical estimates for research and education, not investment advice. Data shown comes from the bundled sample feed.</Text>
       </ScrollView>
+      <BreakingOverlay item={breaking} onClose={() => setBreaking(null)} />
+      <CommandPalette open={palette} onClose={() => setPalette(false)} onRefresh={() => refresh(false)} live={live} onToggleLive={() => setLive((l) => !l)} />
       <Toasts />
     </View>
   );
@@ -178,7 +249,7 @@ export default function Shell({ children }: { children: ReactNode }) {
 
 const st = StyleSheet.create({
   safe: { flex: 1, backgroundColor: C.ink },
-  rail: { height: 64, backgroundColor: C.rail, borderBottomWidth: 1, borderBottomColor: C.line, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 14 },
+  rail: { zIndex: 5, height: 64, backgroundColor: C.rail, borderBottomWidth: 1, borderBottomColor: C.line, paddingHorizontal: 14, flexDirection: 'row', alignItems: 'center', gap: 14 },
   nav: { flexGrow: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 4 },
   navItem: { minHeight: 34, borderRadius: 7, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 7 },
   navItemActive: { backgroundColor: C.raised },
@@ -199,7 +270,11 @@ const st = StyleSheet.create({
   pageTitle: { color: C.text, fontFamily: F.semi, fontSize: 28, letterSpacing: -1, marginTop: 10 },
   topActions: { flexDirection: 'row', gap: 10, alignItems: 'center', flexWrap: 'wrap' },
   search: { height: 34, borderWidth: 1, borderColor: C.line, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 11, width: 210 },
-  searchInput: { flex: 1, color: C.text, fontFamily: F.regular, fontSize: 11, height: 32, outlineStyle: 'none' } as any,
+  searchText: { flex: 1, color: C.muted, fontFamily: F.regular, fontSize: 11 },
+  shortcut: { color: C.muted, fontFamily: F.bold, fontSize: 8, borderWidth: 1, borderColor: C.line, borderRadius: 4, paddingHorizontal: 4, paddingVertical: 2 },
+  liveBtn: { height: 34, borderRadius: 4, borderWidth: 1, borderColor: C.line, paddingHorizontal: 11, flexDirection: 'row', alignItems: 'center', gap: 7 },
+  liveOn: { borderColor: C.coralLine, backgroundColor: C.coralBg, boxShadow: `0 0 18px -4px ${C.coral}` } as any,
+  liveDotOn: { width: 7, height: 7, borderRadius: 4, backgroundColor: C.coral },
   refresh: { height: 34, borderRadius: 4, borderWidth: 1, borderColor: C.line, paddingHorizontal: 12, justifyContent: 'center' },
   refreshText: { color: C.text, fontFamily: F.bold, fontSize: 9.5, letterSpacing: 0.7 },
   banner: { marginTop: 24, minHeight: 46, borderWidth: 1, borderColor: '#575E54', backgroundColor: '#323634', borderRadius: 9, paddingHorizontal: 14, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', gap: 10, flexWrap: 'wrap' },
